@@ -104,7 +104,7 @@ protected:
             WS_PRINT("[WS-Server][");
             WS_PRINT(client->num);
             WS_PRINTLN("][handleHeader] no Websocket connection close.");
-            client->tcp->write("HTTP/1.1 400 Bad Request\r\n"
+            client->tcp.write("HTTP/1.1 400 Bad Request\r\n"
                     "Server: arduino-WebSocket-Server\r\n"
                     "Content-Type: text/plain\r\n"
                     "Content-Length: 32\r\n"

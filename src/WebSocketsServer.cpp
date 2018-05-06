@@ -84,28 +84,33 @@ void WebSocketsServer::begin(void) {
  */
 void WebSocketsServer::loop(void) {
     //check if client, if it is a new client
-    WSclient_t wsClient;
-    wsClient._client = _server->available();
+    EthernetClient client;
+    client = _server->available();
 
-    if (wsClient._client) {
+    if (client) {
+        Serial.println("got client");
         for(uint8_t i = 0; i < WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
-            if( _clients[i]._client == wsClient._client ) { //not a new client, handle data
-                wsClient.num = i;
+            if( _clients[i].tcp == client ) { //not a new client, handle data
+                Serial.println("client exist");
+                _clients[i].num = i;
                 handleClientData(_clients[i]);
                 return;
             }
         }
         //if you got to that point, it is a new client
         for(uint8_t i = 0; i < WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
-            if (!_clients[i]._client) { //if emty slot, assing new client then handle it.
-                _clients[i] = wsClient;
-                _clients[i].tcp = &_clients[i]._client;
+            Serial.println("check free socket");
+            if (!_clients[i].tcp) { //if emty slot, assing new client then handle it.
+                Serial.println("free socket");
+                _clients[i].tcp = client;
+                //_clients[i].tcp = &_clients[i]._client;
+                Serial.println("handle client");
                 handleNewClients(_clients[i]);
                 return;
             }
 
         }
-        wsClient._client.stop(); //close connection is no free spot
+        client.stop(); //close connection is no free spot
         WS_PRINTLN("[WS-Server] No free socket, connection close");
     }
     //WS_PRINTLN("[WS-Server] No Client");
@@ -275,7 +280,7 @@ IPAddress WebSocketsServer::remoteIP(uint8_t num) {
     if(num < WEBSOCKETS_SERVER_CLIENT_MAX) {
         WSclient_t * client = &_clients[num];
         if(clientIsConnected(client)) {
-            return client->tcp->remoteIP();
+            return client->tcp.remoteIP();
         }
     }
 
@@ -330,12 +335,12 @@ void WebSocketsServer::clientDisconnect(WSclient_t * client) {
 #endif
 
     if(client->tcp) {
-        if(client->tcp->connected()) {
-            client->tcp->flush();
-            client->tcp->stop();
+        if(client->tcp.connected()) {
+            client->tcp.flush();
+            client->tcp.stop();
         }
-        delete client->tcp;
-        client->tcp = NULL;
+        //delete client->tcp;
+        //client->tcp = NULL;
     }
 
     client->cUrl = "";
@@ -368,7 +373,7 @@ bool WebSocketsServer::clientIsConnected(WSclient_t * client) {
         return false;
     }
 
-    if(client->tcp->connected()) {
+    if(client->tcp.connected()) {
         if(client->status != WSC_NOT_CONNECTED) {
             WS_PRINTLN("no connection");
             return true;
@@ -396,11 +401,11 @@ bool WebSocketsServer::clientIsConnected(WSclient_t * client) {
 
 bool WebSocketsServer::clientIsConnected2(WSclient_t & client) {
 
-    if(!client._client) {
+    if(!client.tcp) {
         return false;
     }
 
-    if(client._client.connected()) {
+    if(client.tcp.connected()) {
         if(client.status != WSC_NOT_CONNECTED) {
             return true;
         }
@@ -416,7 +421,7 @@ bool WebSocketsServer::clientIsConnected2(WSclient_t & client) {
         }
     }
 
-    if(client._client) {
+    if(client.tcp) {
         // do cleanup
         clientDisconnect(&client);
     }
@@ -440,13 +445,13 @@ void WebSocketsServer::handleNewClients(WSclient_t & client) {
 
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
                 client.isSSL = false;
-                client.tcp->setNoDelay(true);
+                client.tcp.setNoDelay(true);
 #endif
                 // set Timeout for readBytesUntil and readStringUntil
-                client.tcp->setTimeout(WEBSOCKETS_TCP_TIMEOUT);
+                client.tcp.setTimeout(WEBSOCKETS_TCP_TIMEOUT);
                 client.status = WSC_HEADER;
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
-                IPAddress ip = client.tcp->remoteIP();
+                IPAddress ip = client.tcp.remoteIP();
                 //DEBUG_WEBSOCKETS("[WS-Server][%d] new client from %d.%d.%d.%d\n", client->num, ip[0], ip[1], ip[2], ip[3]);
                 WS_PRINT("[WS-Server][");
                 WS_PRINT(client.num);
@@ -506,13 +511,13 @@ void WebSocketsServer::handleNewClients(void) {
 
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
                 client->isSSL = false;
-                client->tcp->setNoDelay(true);
+                client->tcp.setNoDelay(true);
 #endif
                 // set Timeout for readBytesUntil and readStringUntil
-                client->tcp->setTimeout(WEBSOCKETS_TCP_TIMEOUT);
+                client->tcp.setTimeout(WEBSOCKETS_TCP_TIMEOUT);
                 client->status = WSC_HEADER;
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
-                IPAddress ip = client->tcp->remoteIP();
+                IPAddress ip = client->tcp.remoteIP();
                 //DEBUG_WEBSOCKETS("[WS-Server][%d] new client from %d.%d.%d.%d\n", client->num, ip[0], ip[1], ip[2], ip[3]);
                 WS_PRINT("[WS-Server][");
                 WS_PRINT(client->num);
@@ -539,7 +544,7 @@ void WebSocketsServer::handleNewClients(void) {
             // no free space to handle client
             WEBSOCKETS_NETWORK_CLASS tcpClient = _server->available();
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
-            IPAddress ip = client->tcp->remoteIP();
+            IPAddress ip = client->tcp.remoteIP();
             //DEBUG_WEBSOCKETS("[WS-Server] no free space new client from %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
             WS_PRINT("[WS-Server] no free space new client from ");
             WS_PRINT(ip[0]);
@@ -574,7 +579,7 @@ void WebSocketsServer::handleClientData(WSclient_t & client) {
     //for(uint8_t i = 0; i < WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
         //client.tcp = _clients[i].tcp;
         if(clientIsConnected(&client)) {
-            int len = client.tcp->available();
+            int len = client.tcp.available();
             if(len > 0) {
 
                 switch(client.status) {
@@ -602,7 +607,7 @@ void WebSocketsServer::handleClientData(WSclient_t & client) {
  */
 void WebSocketsServer::handleHeader(WSclient_t * client) {
 
-    String headerLine = client->tcp->readStringUntil('\n');
+    String headerLine = client->tcp.readStringUntil('\n');
     headerLine.trim(); // remove \r
 
     if(headerLine.length() > 0) {
@@ -719,22 +724,22 @@ void WebSocketsServer::handleHeader(WSclient_t * client) {
 
             client->status = WSC_CONNECTED;
 
-            client->tcp->write("HTTP/1.1 101 Switching Protocols\r\n"
+            client->tcp.write("HTTP/1.1 101 Switching Protocols\r\n"
                     "Server: arduino-WebSocketsServer\r\n"
                     "Upgrade: websocket\r\n"
                     "Connection: Upgrade\r\n"
                     "Sec-WebSocket-Version: 13\r\n"
                     "Sec-WebSocket-Accept: ");
-            client->tcp->write(sKey.c_str(), sKey.length());
-            client->tcp->write("\r\n");
+            client->tcp.write(sKey.c_str(), sKey.length());
+            client->tcp.write("\r\n");
 
             if(client->cProtocol.length() > 0) {
                 // TODO add api to set Protocol of Server
-                client->tcp->write("Sec-WebSocket-Protocol: arduino\r\n");
+                client->tcp.write("Sec-WebSocket-Protocol: arduino\r\n");
             }
 
             // header end
-            client->tcp->write("\r\n");
+            client->tcp.write("\r\n");
 
             // send ping
             WebSockets::sendFrame(client, WSop_ping);

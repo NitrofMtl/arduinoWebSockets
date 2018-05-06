@@ -27,7 +27,7 @@
 
 #include <Arduino.h>
 
-//#define DEBUG_WEBSOCKETS
+#define DEBUG_WEBSOCKETS
 
 #ifdef DEBUG_WEBSOCKETS
 #define WS_PRINT(x) Serial.print(x);
@@ -35,7 +35,7 @@
 #else 
 #define WS_PRINT(x)
 #define WS_PRINTLN(x)
-#define NODEBUG_WEBSOCKETS
+//#define NODEBUG_WEBSOCKETS
 #endif
 
 
@@ -133,8 +133,7 @@ typedef struct {
 
         WSclientsStatus_t status;
 
-        WEBSOCKETS_NETWORK_CLASS * tcp;
-        WEBSOCKETS_NETWORK_CLASS _client;
+        WEBSOCKETS_NETWORK_CLASS tcp;
 /*
 #if (WEBSOCKETS_NETWORK_TYPE == NETWORK_ESP8266)
         bool isSSL;             ///< run in ssl mode
